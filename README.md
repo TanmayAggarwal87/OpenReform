@@ -85,24 +85,29 @@ sequenceDiagram
 ## 📊 Contract Interactions
 
 ```mermaid
-flowchart LR
-    subgraph Contracts
+flowchart TB
+    subgraph Users["👥 Users"]
+        Creator[Creator]
+        Supporter[Supporter]
+        Funder[Funder]
+        Impl[Implementer]
+        Voter[Voter]
+    end
+
+    subgraph Contracts["📜 Smart Contracts"]
         PR[PetitionRegistry]
         IR[ImplementerRegistry]
         EM[EscrowMilestones]
     end
 
-    PR --> |getPetition| EM
-    IR --> |getProfile| EM
-    
-    U1((Creator)) --> |createPetition| PR
-    U2((Supporter)) --> |support| PR
-    U3((Funder)) --> |fund| EM
-    U4((Implementer)) --> |setProfile| IR
-    U4 --> |acceptImplementer| EM
-    U4 --> |submitMilestone| EM
-    U5((Voters)) --> |voteOnMilestone| EM
-    U5 --> |finalizeMilestone| EM
+    Creator -->|createPetition| PR
+    Supporter -->|support| PR
+    Funder -->|fund| EM
+    Impl -->|setProfile| IR
+    Impl -->|accept/submit| EM
+    Voter -->|vote/finalize| EM
+    PR -.->|reads| EM
+    IR -.->|reads| EM
 ```
 
 ---
@@ -110,16 +115,19 @@ flowchart LR
 ## 🎯 Petition Lifecycle
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Created: createPetition()
-    Created --> Active: support() / fund()
-    Active --> Accepted: acceptImplementer()
-    Accepted --> InProgress: submitMilestone()
-    InProgress --> InProgress: More milestones
-    InProgress --> Completed: All milestones approved
-    Active --> Refunded: Deadline passed
-    Completed --> [*]
-    Refunded --> [*]
+flowchart LR
+    A["🆕 Created"] --> B["✅ Active"]
+    B --> C["🤝 Accepted"]
+    C --> D["⚙️ In Progress"]
+    D --> E["🎉 Completed"]
+    B --> F["💰 Refunded"]
+    
+    style A fill:#e1f5fe
+    style B fill:#c8e6c9
+    style C fill:#fff9c4
+    style D fill:#ffe0b2
+    style E fill:#a5d6a7
+    style F fill:#ffcdd2
 ```
 
 ---

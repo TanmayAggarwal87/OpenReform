@@ -20,7 +20,7 @@ Create a petition with IPFS-hosted content and on-chain CID, support and fund it
 Objective: Build minimal contracts for petitions, escrow + milestones, implementers, and approvals, with events required by the indexer and UI.
 
 Scope
-- MVP must-have: Petition creation (CID stored), support (no double support), ETH-only funding in escrow, implementer acceptance, milestones + proof CID submission, attestor approval, milestone payout, refunds if deadline not met.
+- MVP must-have: Petition creation (CID stored), support (no double support), ETH-only funding in escrow, implementer acceptance, milestones + proof CID submission, on-chain vote approval, milestone payout, refunds if deadline not met.
 - Nice-to-have: Stake/reputation counters, petition threshold rules, multi-attestor approval.
 
 Milestones (very granular)
@@ -61,9 +61,9 @@ Milestones (very granular)
    - Time estimate: 60–90 min
    - Dependencies: PetitionRegistry + EscrowMilestones linkage.
 
-7) Task: Implement Attestation/Approval (MVP admin/multisig).
-   - Output/Deliverable: Approval mechanism to approve milestone proofs.
-   - Verification/Acceptance: Tests show MilestoneApproved triggers payout.
+7) Task: Implement approval voting for milestone proofs (simple on-chain vote).
+   - Output/Deliverable: Approval mechanism to approve milestone proofs via on-chain vote.
+   - Verification/Acceptance: Tests show MilestoneApproved triggers payout when vote passes.
    - Time estimate: 90–120 min
    - Dependencies: Milestone submission flow in EscrowMilestones.
 
@@ -277,7 +277,8 @@ Final checkpoint: 2–3 minute demo success.
 ## 9) Questions / Decisions Needed
 - Decision set for MVP: ETH-only escrow (simplest and fastest to ship).
 - Decision set for MVP: No minimum thresholds; support is a signal, and funding can start immediately.
-- Approval model (open): who can approve milestone proofs to release escrow payouts? Options: single admin, team multisig, or simple DAO vote. This controls who can finalize milestone completion.
+- Decision set for MVP: Use on-chain voting for milestone approvals (details below still needed).
+- Voting details (required to implement): who can vote (supporters, funders, or any wallet)? what is the passing threshold (simple majority, quorum + majority)? what is the voting window length? how to handle ties or low participation?
 - Any hackathon constraints discovered in official docs (RPC limits, demo requirements)?
 - IPFS pinning provider selection (Pinata vs web3.storage vs others)?
 

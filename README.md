@@ -116,18 +116,18 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    A["🆕 Created"] --> B["✅ Active"]
-    B --> C["🤝 Accepted"]
-    C --> D["⚙️ In Progress"]
-    D --> E["🎉 Completed"]
-    B --> F["💰 Refunded"]
+    A["Created"] --> B["Active"]
+    B --> C["Accepted"]
+    C --> D["In Progress"]
+    D --> E["Completed"]
+    B --> F["Refunded"]
     
-    style A fill:#e1f5fe
-    style B fill:#c8e6c9
-    style C fill:#fff9c4
-    style D fill:#ffe0b2
-    style E fill:#a5d6a7
-    style F fill:#ffcdd2
+    style A fill:#e1f5fe,stroke:#01579b,color:#000
+    style B fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style C fill:#fff9c4,stroke:#f9a825,color:#000
+    style D fill:#ffe0b2,stroke:#ef6c00,color:#000
+    style E fill:#a5d6a7,stroke:#2e7d32,color:#000
+    style F fill:#ffcdd2,stroke:#c62828,color:#000
 ```
 
 ---

@@ -1,7 +1,7 @@
-import deployedAddresses from "../../../shared/deployed-addresses.json";
-import petitionRegistryAbi from "../../../shared/abis/PetitionRegistry.json";
-import implementerRegistryAbi from "../../../shared/abis/ImplementerRegistry.json";
-import escrowMilestonesAbi from "../../../shared/abis/EscrowMilestones.json";
+import deployedAddresses from "./deployed-addresses.json";
+import petitionRegistryAbi from "@/abis/PetitionRegistry.json";
+import implementerRegistryAbi from "@/abis/ImplementerRegistry.json";
+import escrowMilestonesAbi from "@/abis/EscrowMilestones.json";
 
 export type Address = `0x${string}`;
 

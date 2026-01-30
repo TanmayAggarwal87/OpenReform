@@ -1,0 +1,39 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_29-3c1d4b2f7c1aed3c3765a2203bcf9224c8384e74",
+  "solcVersion": "0.8.29",
+  "solcLongVersion": "0.8.29+commit.ab55807c",
+  "userSourceNameMap": {
+    "contracts/ImplementerRegistry.sol": "project/contracts/ImplementerRegistry.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/ImplementerRegistry.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.29;\r\n\r\ncontract ImplementerRegistry {\r\n  event ImplementerProfileSet(address implementer, string profileCID, uint256 timestamp);\r\n\r\n  mapping(address => string) private _profiles;\r\n\r\n  function setProfile(string calldata profileCID) external {\r\n    require(bytes(profileCID).length > 0, \"EMPTY_CID\");\r\n    _profiles[msg.sender] = profileCID;\r\n\r\n    emit ImplementerProfileSet(msg.sender, profileCID, block.timestamp);\r\n  }\r\n\r\n  function getProfile(address implementer) external view returns (string memory) {\r\n    return _profiles[implementer];\r\n  }\r\n}"
+      }
+    }
+  }
+}

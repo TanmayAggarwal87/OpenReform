@@ -1,5 +1,5 @@
 /**
- * OpenReform Contract Deployment Script
+ * OpenReform Contract Deployment Script (Ethers.js version)
  * Deploys all contracts to Sepolia testnet
  * 
  * Usage:
@@ -14,56 +14,73 @@ import path from "path";
 async function main() {
     console.log("🚀 Deploying OpenReform contracts to Sepolia...\n");
 
-    const [deployer] = await hre.viem.getWalletClients();
-    const publicClient = await hre.viem.getPublicClient();
+    // Get deployer account using ethers
+    const [deployer] = await hre.ethers.getSigners();
 
-    console.log(`Deployer: ${deployer.account.address}`);
-    const balance = await publicClient.getBalance({ address: deployer.account.address });
-    console.log(`Balance: ${balance} wei\n`);
+    console.log(`Deployer: ${deployer.address}`);
+
+    const balance = await hre.ethers.provider.getBalance(deployer.address);
+    console.log(`Balance: ${hre.ethers.formatEther(balance)} ETH\n`);
+
+    if (balance === 0n) {
+        throw new Error("Deployer has no ETH! Get testnet ETH from https://sepoliafaucet.com/");
+    }
 
     // 1. Deploy ImplementerRegistry
     console.log("1️⃣ Deploying ImplementerRegistry...");
-    const implementerRegistry = await hre.viem.deployContract("ImplementerRegistry");
-    console.log(`   ✅ ImplementerRegistry: ${implementerRegistry.address}\n`);
+    const ImplementerRegistry = await hre.ethers.getContractFactory("ImplementerRegistry");
+    const implementerRegistry = await ImplementerRegistry.deploy();
+    await implementerRegistry.waitForDeployment();
+    const implementerRegistryAddress = await implementerRegistry.getAddress();
+    console.log(`   ✅ ImplementerRegistry: ${implementerRegistryAddress}\n`);
 
     // 2. Deploy PetitionRegistry
     console.log("2️⃣ Deploying PetitionRegistry...");
-    const petitionRegistry = await hre.viem.deployContract("PetitionRegistry");
-    console.log(`   ✅ PetitionRegistry: ${petitionRegistry.address}\n`);
+    const PetitionRegistry = await hre.ethers.getContractFactory("PetitionRegistry");
+    const petitionRegistry = await PetitionRegistry.deploy();
+    await petitionRegistry.waitForDeployment();
+    const petitionRegistryAddress = await petitionRegistry.getAddress();
+    console.log(`   ✅ PetitionRegistry: ${petitionRegistryAddress}\n`);
 
     // 3. Deploy EscrowMilestones (requires registry addresses)
     console.log("3️⃣ Deploying EscrowMilestones...");
-    const votingWindowSeconds = BigInt(86400); // 24 hours for voting
-    const escrowMilestones = await hre.viem.deployContract("EscrowMilestones", [
-        petitionRegistry.address,
-        implementerRegistry.address,
-        votingWindowSeconds,
-    ]);
-    console.log(`   ✅ EscrowMilestones: ${escrowMilestones.address}\n`);
+    const votingWindowSeconds = 86400n; // 24 hours for voting
+    const EscrowMilestones = await hre.ethers.getContractFactory("EscrowMilestones");
+    const escrowMilestones = await EscrowMilestones.deploy(
+        petitionRegistryAddress,
+        implementerRegistryAddress,
+        votingWindowSeconds
+    );
+    await escrowMilestones.waitForDeployment();
+    const escrowMilestonesAddress = await escrowMilestones.getAddress();
+    console.log(`   ✅ EscrowMilestones: ${escrowMilestonesAddress}\n`);
 
     // Output summary
     console.log("═".repeat(50));
     console.log("✅ DEPLOYMENT COMPLETE!");
     console.log("═".repeat(50));
     console.log("\nContract Addresses:");
-    console.log(`PETITION_REGISTRY_ADDRESS=${petitionRegistry.address}`);
-    console.log(`IMPLEMENTER_REGISTRY_ADDRESS=${implementerRegistry.address}`);
-    console.log(`ESCROW_MILESTONES_ADDRESS=${escrowMilestones.address}`);
-    console.log("\n📋 Copy these to indexer-api/.env and shared/constants.ts\n");
+    console.log(`PETITION_REGISTRY_ADDRESS=${petitionRegistryAddress}`);
+    console.log(`IMPLEMENTER_REGISTRY_ADDRESS=${implementerRegistryAddress}`);
+    console.log(`ESCROW_MILESTONES_ADDRESS=${escrowMilestonesAddress}`);
+    console.log("\n📋 Copy these to indexer-api/.env\n");
 
     // Save addresses to file
     const addresses = {
-        petitionRegistry: petitionRegistry.address,
-        implementerRegistry: implementerRegistry.address,
-        escrowMilestones: escrowMilestones.address,
+        petitionRegistry: petitionRegistryAddress,
+        implementerRegistry: implementerRegistryAddress,
+        escrowMilestones: escrowMilestonesAddress,
         network: "sepolia",
+        chainId: 11155111,
         deployedAt: new Date().toISOString(),
     };
 
-    const outputPath = path.join(__dirname, "..", "..", "shared", "deployed-addresses.json");
-    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    const outputDir = path.join(__dirname, "..", "..", "shared");
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    const outputPath = path.join(outputDir, "deployed-addresses.json");
     fs.writeFileSync(outputPath, JSON.stringify(addresses, null, 2));
-    console.log(`📁 Addresses saved to: ${outputPath}`);
+    console.log(`📁 Addresses saved to: shared/deployed-addresses.json`);
 }
 
 main()

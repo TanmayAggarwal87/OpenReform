@@ -1,0 +1,39 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_29-80bd4b2286cf86eedef4c0ad4ac96b052e38e191",
+  "solcVersion": "0.8.29",
+  "solcLongVersion": "0.8.29+commit.ab55807c",
+  "userSourceNameMap": {
+    "contracts/PetitionRegistry.sol": "project/contracts/PetitionRegistry.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/PetitionRegistry.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.29;\r\n\r\ncontract PetitionRegistry {\r\n  event PetitionCreated(uint256 petitionId, address creator, string contentCID, uint256 timestamp);\r\n  event Supported(uint256 petitionId, address supporter, uint256 timestamp);\r\n\r\n  struct Petition {\r\n    address creator;\r\n    string contentCID;\r\n    uint256 createdAt;\r\n    uint256 supportCount;\r\n    bool exists;\r\n  }\r\n\r\n  uint256 private _nextPetitionId = 1;\r\n  mapping(uint256 => Petition) private _petitions;\r\n  mapping(uint256 => mapping(address => bool)) private _supporters;\r\n\r\n  function totalPetitions() external view returns (uint256) {\r\n    return _nextPetitionId - 1;\r\n  }\r\n\r\n  function getPetition(uint256 petitionId)\r\n    external\r\n    view\r\n    returns (address creator, string memory contentCID, uint256 createdAt, uint256 supportCount)\r\n  {\r\n    Petition storage petition = _petitions[petitionId];\r\n    require(petition.exists, \"PETITION_NOT_FOUND\");\r\n\r\n    return (petition.creator, petition.contentCID, petition.createdAt, petition.supportCount);\r\n  }\r\n\r\n  function hasSupported(uint256 petitionId, address supporter) external view returns (bool) {\r\n    return _supporters[petitionId][supporter];\r\n  }\r\n\r\n  function createPetition(string calldata contentCID) external returns (uint256 petitionId) {\r\n    require(bytes(contentCID).length > 0, \"EMPTY_CID\");\r\n\r\n    petitionId = _nextPetitionId++;\r\n    _petitions[petitionId] = Petition({\r\n      creator: msg.sender,\r\n      contentCID: contentCID,\r\n      createdAt: block.timestamp,\r\n      supportCount: 0,\r\n      exists: true\r\n    });\r\n\r\n    emit PetitionCreated(petitionId, msg.sender, contentCID, block.timestamp);\r\n  }\r\n\r\n  function support(uint256 petitionId) external {\r\n    Petition storage petition = _petitions[petitionId];\r\n    require(petition.exists, \"PETITION_NOT_FOUND\");\r\n    require(!_supporters[petitionId][msg.sender], \"ALREADY_SUPPORTED\");\r\n\r\n    _supporters[petitionId][msg.sender] = true;\r\n    petition.supportCount += 1;\r\n\r\n    emit Supported(petitionId, msg.sender, block.timestamp);\r\n  }\r\n}"
+      }
+    }
+  }
+}

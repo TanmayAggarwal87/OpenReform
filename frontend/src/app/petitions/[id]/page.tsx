@@ -58,7 +58,7 @@ export default function PetitionDetailPage() {
   const params = useParams();
   const petitionId = Array.isArray(params?.id) ? params?.id[0] : (params?.id as string | undefined);
 
-  const { isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
@@ -78,6 +78,14 @@ export default function PetitionDetailPage() {
   const [modalMessage, setModalMessage] = useState<string | null>(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showVoteModal, setShowVoteModal] = useState(false);
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [finalizeMilestone, setFinalizeMilestone] = useState(0);
+  const [hasSupported, setHasSupported] = useState<boolean | null>(null);
+  const [fundedByUser, setFundedByUser] = useState<string | null>(null);
+  const [pendingPayout, setPendingPayout] = useState<string | null>(null);
+  const [voteInfo, setVoteInfo] = useState<
+    Record<number, { yes: number; no: number; endTime: number; finalized: boolean; round: number }>
+  >({});
 
   const isProcessing = Boolean(modalMessage);
 
@@ -91,7 +99,9 @@ export default function PetitionDetailPage() {
       try {
         const data = await fetchPetition(petitionId);
         if (ignore) return;
-        setPetition(data.petition);
+        if (data.petition) {
+          setPetition(data.petition);
+        }
         setTimeline(data.timeline || []);
       } catch (err) {
         if (ignore) return;
@@ -242,6 +252,57 @@ export default function PetitionDetailPage() {
     };
   }, [publicClient, petitionId]);
 
+  useEffect(() => {
+    const petitionRegistry = CONTRACT_ADDRESSES.petitionRegistry;
+    const escrowAddress = CONTRACT_ADDRESSES.escrowMilestones;
+    if (!publicClient || !petitionRegistry || !escrowAddress || !petitionId || !address) return;
+    let ignore = false;
+
+    const loadUserStats = async () => {
+      try {
+        const supported = await publicClient.readContract({
+          address: petitionRegistry,
+          abi: ABIS.petitionRegistry,
+          functionName: "hasSupported",
+          args: [BigInt(petitionId), address],
+        });
+        if (!ignore) setHasSupported(Boolean(supported));
+      } catch {
+        if (!ignore) setHasSupported(null);
+      }
+
+      try {
+        const funded = await publicClient.readContract({
+          address: escrowAddress,
+          abi: ABIS.escrowMilestones,
+          functionName: "fundedAmount",
+          args: [BigInt(petitionId), address],
+        });
+        if (!ignore) setFundedByUser(formatEther(funded as bigint));
+      } catch {
+        if (!ignore) setFundedByUser(null);
+      }
+
+      try {
+        const pending = await publicClient.readContract({
+          address: escrowAddress,
+          abi: ABIS.escrowMilestones,
+          functionName: "pendingPayout",
+          args: [address],
+        });
+        if (!ignore) setPendingPayout(formatEther(pending as bigint));
+      } catch {
+        if (!ignore) setPendingPayout(null);
+      }
+    };
+
+    loadUserStats();
+
+    return () => {
+      ignore = true;
+    };
+  }, [publicClient, petitionId, address]);
+
   const mergedMilestones = useMemo(() => {
     const ipfsMilestones = content?.milestones ?? [];
     const indexedMilestones = petition?.milestones ?? [];
@@ -266,6 +327,49 @@ export default function PetitionDetailPage() {
       };
     });
   }, [content, petition, chainMilestones]);
+
+  useEffect(() => {
+    const escrowAddress = CONTRACT_ADDRESSES.escrowMilestones;
+    if (!publicClient || !escrowAddress || !petitionId || mergedMilestones.length === 0) return;
+    let ignore = false;
+
+    const loadVotes = async () => {
+      const info: Record<number, { yes: number; no: number; endTime: number; finalized: boolean; round: number }> = {};
+      for (let i = 0; i < mergedMilestones.length; i += 1) {
+        try {
+          const res = await publicClient.readContract({
+            address: escrowAddress,
+            abi: ABIS.escrowMilestones,
+            functionName: "getVote",
+            args: [BigInt(petitionId), BigInt(i)],
+          });
+          const [yesVotes, noVotes, endTime, finalized, round] = res as readonly [
+            bigint,
+            bigint,
+            bigint,
+            boolean,
+            bigint,
+          ];
+          info[i] = {
+            yes: Number(yesVotes),
+            no: Number(noVotes),
+            endTime: Number(endTime),
+            finalized,
+            round: Number(round),
+          };
+        } catch {
+          // skip missing vote info
+        }
+      }
+      if (!ignore) setVoteInfo(info);
+    };
+
+    loadVotes();
+
+    return () => {
+      ignore = true;
+    };
+  }, [publicClient, petitionId, mergedMilestones.length]);
 
   const totalGoal = useMemo(() => {
     const sum = mergedMilestones.reduce((acc, milestone) => {
@@ -424,6 +528,65 @@ export default function PetitionDetailPage() {
     setShowVoteModal(false);
   }
 
+  async function handleClaimRefund() {
+    const escrowAddress = CONTRACT_ADDRESSES.escrowMilestones;
+    if (!escrowAddress) {
+      setStatus("Escrow contract not configured.");
+      return;
+    }
+
+    await runTx(
+      () =>
+        writeContractAsync({
+          address: escrowAddress,
+          abi: ABIS.escrowMilestones,
+          functionName: "claimRefund",
+          args: [BigInt(petitionId || 0)],
+        }),
+      "Refund claimed.",
+    );
+  }
+
+  async function handleWithdrawPayout() {
+    const escrowAddress = CONTRACT_ADDRESSES.escrowMilestones;
+    if (!escrowAddress) {
+      setStatus("Escrow contract not configured.");
+      return;
+    }
+
+    await runTx(
+      () =>
+        writeContractAsync({
+          address: escrowAddress,
+          abi: ABIS.escrowMilestones,
+          functionName: "withdrawPayout",
+          args: [],
+        }),
+      "Payout withdrawn.",
+    );
+  }
+
+  async function handleFinalizeMilestone() {
+    const escrowAddress = CONTRACT_ADDRESSES.escrowMilestones;
+    if (!escrowAddress) {
+      setStatus("Escrow contract not configured.");
+      return;
+    }
+
+    await runTx(
+      () =>
+        writeContractAsync({
+          address: escrowAddress,
+          abi: ABIS.escrowMilestones,
+          functionName: "finalizeMilestone",
+          args: [BigInt(petitionId || 0), BigInt(finalizeMilestone)],
+        }),
+      "Milestone finalized.",
+    );
+
+    setShowFinalizeModal(false);
+  }
+
   return (
     <div className="min-h-screen bg-[#0b0f1a]">
       <Header />
@@ -508,6 +671,18 @@ export default function PetitionDetailPage() {
                       <span>Payout: {milestone.payout || "--"} ETH</span>
                       <span>Proof CID: {milestone.proofCID ? truncate(milestone.proofCID) : "--"}</span>
                     </div>
+                    {voteInfo[milestone.index] && (
+                      <div className="mt-3 text-xs text-[#6B7280]">
+                        <p>
+                          Votes: {voteInfo[milestone.index].yes} yes / {voteInfo[milestone.index].no} no · Round{" "}
+                          {voteInfo[milestone.index].round}
+                        </p>
+                        <p>
+                          Voting ends: {formatTimestamp(voteInfo[milestone.index].endTime)} ·{" "}
+                          {voteInfo[milestone.index].finalized ? "Finalized" : "Open"}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {mergedMilestones.length === 0 && (
@@ -555,8 +730,12 @@ export default function PetitionDetailPage() {
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-3">
-                <button className="btn-secondary" onClick={handleSupport}>
-                  Support
+                <button
+                  className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={handleSupport}
+                  disabled={hasSupported === true}
+                >
+                  {hasSupported ? "Supported" : "Support"}
                 </button>
                 <button className="btn-success" onClick={handleFund}>
                   Fund
@@ -568,6 +747,10 @@ export default function PetitionDetailPage() {
                 onChange={(event) => setFundAmount(event.target.value)}
                 placeholder="Funding amount in ETH"
               />
+              <div className="mt-3 text-xs text-[#6B7280]">
+                <p>Support status: {hasSupported ? "Supported" : "Not yet"}</p>
+                {fundedByUser && <p>Your funding: {Number(fundedByUser).toFixed(4)} ETH</p>}
+              </div>
             </div>
 
             <div className="card p-6">
@@ -595,6 +778,24 @@ export default function PetitionDetailPage() {
                 </button>
                 <button className="btn-secondary" onClick={() => setShowVoteModal(true)}>
                   Vote on milestone
+                </button>
+                <button className="btn-secondary" onClick={() => setShowFinalizeModal(true)}>
+                  Finalize milestone
+                </button>
+              </div>
+            </div>
+
+            <div className="card p-6">
+              <h3 className="text-base font-semibold">Payouts & refunds</h3>
+              <p className="subtle mt-2 text-sm">
+                Pending payout: {pendingPayout ? `${Number(pendingPayout).toFixed(4)} ETH` : "--"}
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button className="btn-success" onClick={handleWithdrawPayout}>
+                  Withdraw payout
+                </button>
+                <button className="btn-danger" onClick={handleClaimRefund}>
+                  Claim refund
                 </button>
               </div>
             </div>
@@ -667,6 +868,29 @@ export default function PetitionDetailPage() {
           </div>
           <button className="btn-primary" onClick={handleVote}>
             Submit vote
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={showFinalizeModal}
+        title="Finalize milestone"
+        onClose={() => setShowFinalizeModal(false)}
+      >
+        <div className="space-y-4">
+          <label className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
+            Milestone index
+          </label>
+          <input
+            className="input-field"
+            type="number"
+            value={finalizeMilestone}
+            onChange={(event) => setFinalizeMilestone(Number(event.target.value))}
+            min={0}
+            max={Math.max(mergedMilestones.length - 1, 0)}
+          />
+          <button className="btn-primary" onClick={handleFinalizeMilestone}>
+            Finalize
           </button>
         </div>
       </Modal>

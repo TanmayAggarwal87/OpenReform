@@ -38,7 +38,7 @@ export type PetitionListResponse = {
 };
 
 export type PetitionDetailResponse = {
-  petition: Petition;
+  petition: Petition | null;
   timeline: TimelineEvent[];
 };
 

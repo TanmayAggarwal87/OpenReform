@@ -38,7 +38,10 @@ router.get('/:id', (req, res) => {
         const petition = getPetition(id);
 
         if (!petition) {
-            return res.status(404).json({ error: 'Petition not found' });
+            return res.json({
+                petition: null,
+                timeline: [],
+            });
         }
 
         const timeline = getEventsByPetition(id);
